@@ -1,0 +1,334 @@
+---
+title: "ML Pset 1"
+author: "Sumner Perera"
+date: 1-23-25
+format: 
+    pdf:
+      keep-tex: true
+      latex-engine: xelatex
+      include-in-header: 
+        text: |
+          \usepackage{fvextra}
+          \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+          \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+## Question 1
+a. 
+\vspace{2ex}
+![](q1.jpg)
+
+b. 
+Variance and bias have curves that go in opposite directions because of the trade off that exists between the two; more flexible models fit to every value in the data so variance of the model increases and bias decreases. The test error has a "u" shape because with additional flexibility, the model is unable to model the noise in the test data. The Bayes error remains flat because it is neutral and is the natural error that would exist for any model. The training error decreases with greater flexibility because as flexibility increases, the model does a better job of fitting the data. 
+
+## Question 2 
+A very flexible model can be bad in terms of overfitting to the training data and then not doing well with the test data (creating a large test error). They can also be very difficult to explain and understand in terms of the relationship between the predictor and response variables, compared to less flexible models. A less flexible model might be preferred when there's a reasonable assumption that the relationship is simple between the response and predictors. 
+
+## Question 3 
+a. 
+
+```{python}
+## load packages
+import pandas as pd 
+import numpy as np 
+import math 
+```
+
+```{python}
+## load data
+path = r"C:\Users\12019\OneDrive - The University of Chicago\Documents\GitHub\ml_problem sets\Boston.csv"
+
+housing = pd.read_csv(path)
+```
+
+b. 
+
+```{python}
+## get number of rows and columns of the dataset 
+housing.shape
+```
+
+There are 506 rows and 14 columns in the dataset. 
+
+```{python}
+housing.head()
+housing.info()
+```
+
+Each observation (row) is a different Boston census tract and the columns, according to the Boston data_description text file represent a variety of characteristics for that census tract such as CRIM being per capita crime rate by town, ZN being the proportion of residential land zoned for lots over 25k sq ft and more. 
+
+According to that text file, these are what all the variables represent: 
+ CRIM     per capita crime rate by town
+ ZN       proportion of residential land zoned for lots over 25,000 sq.ft.
+ INDUS    proportion of non-retail business acres per town
+ CHAS     Charles River dummy variable (= 1 if tract bounds river; 0 otherwise)
+ NOX      nitric oxides concentration (parts per 10 million)
+ RM       average number of rooms per dwelling
+ AGE      proportion of owner-occupied units built prior to 1940
+ DIS      weighted distances to five Boston employment centres
+ RAD      index of accessibility to radial highways
+ TAX      full-value property-tax rate per $10,000
+ PTRATIO  pupil-teacher ratio by town
+ B        1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town
+ LSTAT    % lower status of the population
+ MDEV     Median value of owner-occupied homes in $1000's
+
+c. 
+
+```{python}
+## import required libraries 
+import matplotlib.pyplot as plt 
+import seaborn as sns 
+```
+
+```{python}
+## create the 5 scatter plots of predictors 
+plt.scatter(housing['CHAS'],housing['CRIM'])
+plt.title('Bounding Charles River vs Per Capita Crime Rate by Town')
+plt.xlabel('Bounding Charles River')
+plt.ylabel('Per Capita Crime Rate')
+
+```
+
+This scatterplot demonstrates that for census tracts that are bounded by the Charles River (equals 1), they have on average a lower per capita crime rate than the tracts that are not bounded by the River (equals 0). 
+
+```{python}
+plt.scatter(housing['AGE'],housing['MDEV'])
+plt.title('Median Home Value vs Pre-1940s Homes')
+plt.xlabel('Prop of Pre-1940 Homes')
+plt.ylabel('Median Value (1000s)')
+```
+
+In this scatterplot, based on the eye alone, there appears to be some sort of negative trend where census tracts that have a greater proportion of homes built before 1940 have a lower median value in the 1000s. 
+
+```{python}
+plt.scatter(housing['PTRATIO'],housing['CRIM'])
+plt.title('Per Capita Crime Rate vs Pupil-Teacher Ratio')
+plt.xlabel('Pupil-Teacher Ratio')
+plt.ylabel('Per Capita Crime Rate')
+```
+
+In this scatterplot we see that census tracts that have about a 21 pupil-teacher ratio have a wide variety of per capita crime rates from 0 to over 80 while all other census tracts with a pupil-teacher ratio outside of this pretty much has a per capita crime rate of around 0. 
+
+```{python}
+plt.scatter(housing['AGE'],housing['NOX'])
+plt.title('Nitric Oxides Conc. vs Prop of Pre-1940 Homes')
+plt.xlabel('Prop of Pre-1940 Homes')
+plt.ylabel('Nitric Oxides Concentrate')
+```
+
+This scatterplot shows by eye that there is a positive correlation between census tracts with a greater proportion of pre-1940 homes and a greater amount of nitric oxides in parts per 10 million. 
+
+```{python}
+plt.scatter(housing['DIS'],housing['CRIM'])
+plt.title('Crime Rate vs Distance to Employment Centers')
+plt.xlabel('Weighted Distances to Employment Centers')
+plt.ylabel('Per Capita Crime Rate')
+```
+
+This scatterplot shows that there is more variability and a clustering of higher per capita crime rate among census tracts that are closer to 5 employment centers compared to those that are further away. For any distance greater than 4, the per capita crime rate sits for the most part at 0. 
+
+d. 
+
+Yes there are some predictors that are associated with crime rate from the explorations I conducted in part c of this question. There appears to be a clustering of higher and more variable per capita crime rate for census tracts that do not bound the Charles River, for tracts where the pupil-teacher ratio is around 20, and tracts where the weighted distance to five Boston employment centers is less than 4. 
+
+For the predictor of bounding the Charles River there are only two options, yes or no which are designated by 1 or 0. For the pupil-teacher ratio the range is between 0 and 22. And for the weighted distances to employment centers that is between 0 and about 12. 
+
+f. 
+
+```{python}
+## filter for just rows that bound Charles River 
+housing_CR_bound = housing.loc[housing['CHAS'] == 1]
+housing_CR_bound.shape
+```
+
+There are 35 census tracts in this dataset that bound the Charles River. 
+
+g. 
+
+```{python}
+## look at the descriptive stats for all the predictors
+housing.describe()
+```
+
+The median pupil-teacher ratio (PTRATIO) in the dataset is about 19. 
+
+h. 
+
+```{python}
+## sort the housing data by the lowest median value for MDEV
+sorted_mdev = housing.sort_values(by='MDEV', ascending = True)
+sorted_mdev.head()
+
+# ref: Asked ChatGPT, "how do you filter by the lowest value in a column in python so that dataset is organized from least to greatest for that column?""
+
+## get the ranges for the other predictors 
+sorted_mdev.describe()
+```
+
+For the census tract that has the lowest median value of homes, the values of the other predictors are the following: 
+
+- CRIM = 38.35 which is in the fourth quartile 
+- ZN = 0 which is the min value in range
+- INDUS = 18.1 which at the 75% value 
+- CHAS = 0 which is the min value in range 
+- NOX = 0.693 which is in the fourth quartile 
+- RM = 5.453 which is in the first quartile 
+- AGE = 100 which is the max 
+- DIS = 1.4896 which is in the first quartile
+- RAD = 24 which is the max 
+- TAX = 666 which is at the 75% percentile 
+- PTRATIO = 20.2 which is at the 75% percentile 
+- B = 396.90 which is the max 
+- LSTAT = 30.59 which is in the fourth quartile 
+
+For the majority of these predictor values they are at the extremes, either at or below the 25th percentile or equal or greater than the 75th percentile with several at the maximum value in the range. 
+
+i.  
+
+```{python}
+## how many census tracts have RM > 7 
+housing_RM_7 = housing.loc[housing['RM'] > 7]
+housing_RM_7.shape
+
+## how many census tracts have RM > 8 
+housing_RM_8 = housing.loc[housing['RM'] > 8]
+housing_RM_8.shape
+
+## view the census tracts with RM >8 
+housing_RM_8.describe()
+```
+
+There are 64 census tracts with average of more than 7 rooms per dwelling. There are 13 census tracts with an average of more than 8 rooms per dwelling. For the census tracts that have an average of more than 8 rooms per dwelling, the crime rate is on the low end, nitric oxides are also lower, there's still a broad range of houses that are built pre-1940s, taxes are in the higher quartile, and the median value of the homes is in the upper half of the distribution. 
+
+## Question 4 
+
+a. 
+The second statement is correct because regardless of the value of the GPA, a positive term will be added to the final value of the college earnings (where Level = 1) compared to high school earnings (where Level = 0). 
+
+b. 
+
+```{python}
+print(50+20*4+0.07*110+35+0.01*4*110-40)
+```
+
+The predicted salary of a college graduate with IQ of 110 and a GPA of 4.0 is $137,100. 
+
+c. 
+False. Just because the value of the coefficient of the interaction term is small compared to 0 this does not necessarily mean that there is little evidence of an interaction effect. To answer this, another statistical test must be performed to determine how statistically significant the interaction term is. 
+
+## Question 5 
+
+a. 
+
+```{python}
+## import the necessary libraries 
+import statsmodels.api as sm
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+import statsmodels.formula.api as smf
+
+
+## separate the preditors from the Y 
+Y = housing['CRIM'] 
+predictors = ['ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE', 'DIS', 'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MDEV']
+
+## create a loop through to generate the models 
+for i in predictors: 
+    X = housing[[i]]
+    x_with_intercept = sm.add_constant(X) 
+    model = sm.OLS(Y, x_with_intercept).fit()
+    print(f"Model for {i}")
+    print(model.summary())
+    print("\n" + "="*80 + "\n") 
+
+##ref: Asked ChatGPT for troubleshooting support with creating the loop. 
+
+```
+
+Looking at all the models, the relationships in which CRIM is statistically significant with one of the predictors are with ZN, INDUS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, B, LSTAT, and MDEV. The R-squared values for all of these models are not particularly large with the greatest at 0.336. 
+
+
+```{python}
+## create plots (5) 
+sig_predictors = ['ZN', 'INDUS','NOX', 'RM', 'AGE']
+
+for i in sig_predictors: 
+    Y = housing['CRIM']
+    X = housing[[i]]
+    x_with_intercept = sm.add_constant(X) 
+    model = sm.OLS(Y, x_with_intercept).fit()
+    
+    housing['predicted'] = model.predict(x_with_intercept)
+
+    plt.scatter(housing[i], Y, color = 'black', label='Data Points')
+    plt.plot(housing[i], housing['predicted'], color = 'red', label = 'Linear Model')
+    plt.xlabel(i)
+    plt.ylabel('CRIM')
+    plt.title(f"Plot of CRIM vs {i}")
+    plt.legend()
+    plt.show()
+
+##ref: Asked ChatGPT for support in generating the plots and troubleshooting the loop. 
+
+```
+
+b. 
+
+```{python}
+## use all the predictors 
+Y = housing['CRIM'] 
+X = sm.add_constant(housing[['ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE', 'DIS', 'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MDEV']])
+
+model_multi = sm.OLS(Y, X).fit()
+
+housing['multi-predict'] = model_multi.predict(X)
+print(model_multi.summary())
+
+```
+
+This gives a model with an R^2 value of 0.448 and not all predictors are significant. Predictors that are not statistically significant are INDUS, CHAS, RM, AGE, TAX, PTRATIO, B, and LSTAT. We can only reject the null hypothesis for the predictors ZN, NOX, DIS, RAD, and MDEV. The R squared for this multi-predictor model is higher than any of the simple, individual regressions at 0.448. 
+
+c. 
+
+```{python}
+## plot the coefficients 
+coeff = {'x': [-0.0735, 0.5068, -1.8715, 30.9753, -2.6910, 0.1071, -1.5428, 0.6141, 0.0296, 1.1446, -0.0355, 0.5444, -0.3606], 
+'y': [0.0449, -0.0616, -0.7414, -10.6455, 0.3811, 0.0020, -0.9950, 0.5888, -0.0037, -0.2787, -0.0069, 0.1213, -0.1992]}
+
+coefficient_data = pd.DataFrame(coeff)
+
+plt.scatter(coefficient_data['x'], coefficient_data['y'], color = 'blue')
+plt.xlabel('Univariate Reg Coefficients')
+plt.ylabel('Multiple Reg Coefficients')
+
+```
+
+The coefficients for both the univariate and multiple regressions for the predictors are both clustered around 0 for the most part except for one outlier where the univariate reg coefficient is at about 31 and the multiple reg coefficient is at around -10 (this is NOX). 
+
+d. 
+
+```{python}
+## use all predictors and not CHAS (indicator variable, 0 or 1)
+predictors = ['ZN', 'INDUS', 'NOX', 'RM', 'AGE', 'DIS', 'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MDEV']
+
+import statsmodels.formula.api as smf
+import pandas as pd
+
+for i in predictors: 
+    formula = f'CRIM ~ {i} + I({i}**2) + I({i}**3)'
+    reg3 = smf.ols(formula, data = housing).fit()
+    est = reg3.params 
+    pval = reg3.pvalues
+    est_table = pd.DataFrame({
+        'Coefficient': est, 
+        'p-value':pval})    
+    
+    print(f'Estimates and p-values for {i}')
+    print(est_table)
+
+#ref: Asked ChatGPT for a way to extract the coefficients and p-values from the results, as well as how to display in a neat way. 
+
+```
+
+Yes there is evidence of non-linear association between some of the predictors and the response; these predictors are ZN, INDUS, NOX, and MDEV with p values that are less than 0.05 which indicates statistical significance. 
